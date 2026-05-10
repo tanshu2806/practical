@@ -1,0 +1,241 @@
+-- ============================================================
+-- PRACTICAL 5: PL/SQL Procedures and Functions
+-- Sales Management System
+-- ============================================================
+
+-- NOTE: This uses MySQL stored procedure syntax.
+-- For PostgreSQL, replace DELIMITER with $$ blocks.
+
+CREATE DATABASE IF NOT EXISTS SalesDB;
+USE SalesDB;
+
+-- ============================================================
+-- TABLE SETUP
+-- ============================================================
+
+CREATE TABLE IF NOT EXISTS Customers (
+    CustomerID   INT PRIMARY KEY AUTO_INCREMENT,
+    CustomerName VARCHAR(100) NOT NULL,
+    Email        VARCHAR(100),
+    Phone        VARCHAR(15),
+    City         VARCHAR(100)
+);
+
+CREATE TABLE IF NOT EXISTS Products (
+    ProductID   INT PRIMARY KEY AUTO_INCREMENT,
+    ProductName VARCHAR(100) NOT NULL,
+    Price       DECIMAL(10,2) NOT NULL,
+    Stock       INT DEFAULT 0
+);
+
+CREATE TABLE IF NOT EXISTS Sales (
+    SaleID     INT PRIMARY KEY AUTO_INCREMENT,
+    CustomerID INT,
+    ProductID  INT,
+    Quantity   INT,
+    SaleDate   DATE DEFAULT (CURRENT_DATE),
+    TotalPrice DECIMAL(10,2),
+    FOREIGN KEY (CustomerID) REFERENCES Customers(CustomerID),
+    FOREIGN KEY (ProductID)  REFERENCES Products(ProductID)
+);
+
+-- Sample data
+INSERT INTO Customers (CustomerName, Email, Phone, City) VALUES
+('Rahul Sharma', 'rahul@gmail.com', '9876543210', 'Pune'),
+('Priya Mehta',  'priya@gmail.com', '9123456789', 'Mumbai'),
+('Amit Patil',   'amit@gmail.com',  '9988776655', 'Nashik');
+
+INSERT INTO Products (ProductName, Price, Stock) VALUES
+('Laptop',     45000.00, 10),
+('Mouse',        500.00, 50),
+('Keyboard',    1200.00, 30),
+('Monitor',    12000.00, 15),
+('Headphones',  2000.00, 25);
+
+INSERT INTO Sales (CustomerID, ProductID, Quantity, SaleDate, TotalPrice) VALUES
+(1, 1, 1, '2024-01-10', 45000.00),
+(1, 2, 2, '2024-01-10',  1000.00),
+(2, 3, 1, '2024-02-05',  1200.00),
+(2, 5, 1, '2024-02-05',  2000.00),
+(3, 4, 2, '2024-03-01', 24000.00),
+(1, 5, 3, '2024-03-15',  6000.00);
+
+-- ============================================================
+-- SECTION A: STORED PROCEDURES
+-- ============================================================
+
+DELIMITER $$
+
+-- Procedure 1: Add a new Customer
+CREATE PROCEDURE AddCustomer(
+    IN p_name  VARCHAR(100),
+    IN p_email VARCHAR(100),
+    IN p_phone VARCHAR(15),
+    IN p_city  VARCHAR(100)
+)
+BEGIN
+    INSERT INTO Customers (CustomerName, Email, Phone, City)
+    VALUES (p_name, p_email, p_phone, p_city);
+    SELECT LAST_INSERT_ID() AS NewCustomerID;
+END$$
+
+-- Procedure 2: Add a new Product
+CREATE PROCEDURE AddProduct(
+    IN p_name  VARCHAR(100),
+    IN p_price DECIMAL(10,2),
+    IN p_stock INT
+)
+BEGIN
+    INSERT INTO Products (ProductName, Price, Stock)
+    VALUES (p_name, p_price, p_stock);
+    SELECT LAST_INSERT_ID() AS NewProductID;
+END$$
+
+-- Procedure 3: Record a Sale (with stock check)
+CREATE PROCEDURE RecordSale(
+    IN p_customerID INT,
+    IN p_productID  INT,
+    IN p_quantity   INT
+)
+BEGIN
+    DECLARE v_price DECIMAL(10,2);
+    DECLARE v_stock INT;
+    DECLARE v_total DECIMAL(10,2);
+
+    -- Get product price and current stock
+    SELECT Price, Stock INTO v_price, v_stock
+    FROM Products WHERE ProductID = p_productID;
+
+    -- Check if enough stock
+    IF v_stock < p_quantity THEN
+        SIGNAL SQLSTATE '45000'
+        SET MESSAGE_TEXT = 'Insufficient stock!';
+    ELSE
+        SET v_total = v_price * p_quantity;
+
+        INSERT INTO Sales (CustomerID, ProductID, Quantity, SaleDate, TotalPrice)
+        VALUES (p_customerID, p_productID, p_quantity, CURRENT_DATE, v_total);
+
+        -- Reduce stock
+        UPDATE Products
+        SET Stock = Stock - p_quantity
+        WHERE ProductID = p_productID;
+
+        SELECT 'Sale recorded successfully!' AS Message, v_total AS TotalAmount;
+    END IF;
+END$$
+
+-- Procedure 4: Get Sales Report for a Customer
+CREATE PROCEDURE GetCustomerSalesReport(
+    IN p_customerID INT
+)
+BEGIN
+    SELECT
+        s.SaleID,
+        c.CustomerName,
+        p.ProductName,
+        s.Quantity,
+        s.TotalPrice,
+        s.SaleDate
+    FROM Sales s
+    JOIN Customers c ON s.CustomerID = c.CustomerID
+    JOIN Products p  ON s.ProductID  = p.ProductID
+    WHERE s.CustomerID = p_customerID
+    ORDER BY s.SaleDate;
+END$$
+
+-- Procedure 5: Update Product Stock
+CREATE PROCEDURE UpdateStock(
+    IN p_productID INT,
+    IN p_newStock  INT
+)
+BEGIN
+    UPDATE Products SET Stock = p_newStock
+    WHERE ProductID = p_productID;
+    SELECT 'Stock updated successfully' AS Message;
+END$$
+
+DELIMITER ;
+
+-- ============================================================
+-- CALL PROCEDURES
+-- ============================================================
+CALL AddCustomer('Sunita Joshi', 'sunita@gmail.com', '9090909090', 'Delhi');
+CALL AddProduct('Webcam', 3500.00, 20);
+CALL RecordSale(1, 3, 2);
+CALL GetCustomerSalesReport(1);
+CALL UpdateStock(2, 45);
+
+-- ============================================================
+-- SECTION B: FUNCTIONS
+-- ============================================================
+
+DELIMITER $$
+
+-- Function 1: Calculate Total Sales (overall)
+CREATE FUNCTION GetTotalSales()
+RETURNS DECIMAL(10,2)
+DETERMINISTIC
+READS SQL DATA
+BEGIN
+    DECLARE total DECIMAL(10,2);
+    SELECT SUM(TotalPrice) INTO total FROM Sales;
+    RETURN IFNULL(total, 0);
+END$$
+
+-- Function 2: Get total sales for a specific customer
+CREATE FUNCTION GetCustomerTotalSales(p_customerID INT)
+RETURNS DECIMAL(10,2)
+DETERMINISTIC
+READS SQL DATA
+BEGIN
+    DECLARE total DECIMAL(10,2);
+    SELECT SUM(TotalPrice) INTO total
+    FROM Sales WHERE CustomerID = p_customerID;
+    RETURN IFNULL(total, 0);
+END$$
+
+-- Function 3: Get total sales for a specific product
+CREATE FUNCTION GetProductRevenue(p_productID INT)
+RETURNS DECIMAL(10,2)
+DETERMINISTIC
+READS SQL DATA
+BEGIN
+    DECLARE revenue DECIMAL(10,2);
+    SELECT SUM(TotalPrice) INTO revenue
+    FROM Sales WHERE ProductID = p_productID;
+    RETURN IFNULL(revenue, 0);
+END$$
+
+-- Function 4: Check if product is in stock
+CREATE FUNCTION IsInStock(p_productID INT)
+RETURNS VARCHAR(10)
+DETERMINISTIC
+READS SQL DATA
+BEGIN
+    DECLARE v_stock INT;
+    SELECT Stock INTO v_stock FROM Products WHERE ProductID = p_productID;
+    IF v_stock > 0 THEN
+        RETURN 'In Stock';
+    ELSE
+        RETURN 'Out of Stock';
+    END IF;
+END$$
+
+DELIMITER ;
+
+-- ============================================================
+-- USE FUNCTIONS
+-- ============================================================
+SELECT GetTotalSales() AS TotalRevenue;
+SELECT GetCustomerTotalSales(1) AS Customer1Total;
+SELECT GetProductRevenue(1) AS LaptopRevenue;
+SELECT IsInStock(2) AS MouseStatus;
+
+-- Use function in a SELECT query
+SELECT
+    ProductName,
+    Stock,
+    IsInStock(ProductID) AS StockStatus,
+    GetProductRevenue(ProductID) AS Revenue
+FROM Products;

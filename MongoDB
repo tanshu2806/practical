@@ -1,0 +1,464 @@
+// ============================================================
+// PRACTICAL 7: MongoDB - CRUD, Aggregation, Indexing
+// PRACTICAL 8: Social Media Data Processing
+// ============================================================
+// Run these commands in MongoDB Shell (mongosh)
+// ============================================================
+
+
+// ============================================================
+// PRACTICAL 7: User Data Collection
+// ============================================================
+
+// Switch to / create database
+use ecommerceDB
+
+// ============================================================
+// SECTION A: CREATE (Insert documents)
+// ============================================================
+
+// Insert one document
+db.users.insertOne({
+    name: "Rahul Sharma",
+    email: "rahul@gmail.com",
+    age: 25,
+    city: "Pune",
+    interests: ["gaming", "music", "travel"],
+    createdAt: new Date()
+})
+
+// Insert multiple documents
+db.users.insertMany([
+    {
+        name: "Priya Mehta",
+        email: "priya@gmail.com",
+        age: 22,
+        city: "Mumbai",
+        interests: ["reading", "cooking"],
+        createdAt: new Date()
+    },
+    {
+        name: "Amit Patil",
+        email: "amit@gmail.com",
+        age: 30,
+        city: "Nashik",
+        interests: ["sports", "travel"],
+        createdAt: new Date()
+    },
+    {
+        name: "Sunita Rao",
+        email: "sunita@gmail.com",
+        age: 28,
+        city: "Pune",
+        interests: ["cooking", "music", "yoga"],
+        createdAt: new Date()
+    },
+    {
+        name: "Vikram Nair",
+        email: "vikram@gmail.com",
+        age: 35,
+        city: "Delhi",
+        interests: ["gaming", "tech"],
+        createdAt: new Date()
+    }
+])
+
+// Create sales collection
+db.sales.insertMany([
+    { product: "Laptop",     category: "Electronics", amount: 45000, qty: 1, customerEmail: "rahul@gmail.com",  date: new Date("2024-01-10") },
+    { product: "Mouse",      category: "Electronics", amount: 500,   qty: 2, customerEmail: "priya@gmail.com",  date: new Date("2024-01-15") },
+    { product: "Laptop",     category: "Electronics", amount: 45000, qty: 1, customerEmail: "amit@gmail.com",   date: new Date("2024-02-01") },
+    { product: "Headphones", category: "Electronics", amount: 2000,  qty: 3, customerEmail: "sunita@gmail.com", date: new Date("2024-02-10") },
+    { product: "Notebook",   category: "Stationery",  amount: 150,   qty: 5, customerEmail: "vikram@gmail.com", date: new Date("2024-03-01") },
+    { product: "Pen",        category: "Stationery",  amount: 50,    qty: 20,customerEmail: "rahul@gmail.com",  date: new Date("2024-03-05") },
+    { product: "Monitor",    category: "Electronics", amount: 12000, qty: 1, customerEmail: "priya@gmail.com",  date: new Date("2024-03-15") },
+    { product: "Headphones", category: "Electronics", amount: 2000,  qty: 2, customerEmail: "amit@gmail.com",   date: new Date("2024-03-20") }
+])
+
+// ============================================================
+// SECTION B: READ (Query documents)
+// ============================================================
+
+// Find all users
+db.users.find()
+
+// Pretty print
+db.users.find().pretty()
+
+// Find with filter
+db.users.find({ city: "Pune" })
+
+// Find one document
+db.users.findOne({ email: "rahul@gmail.com" })
+
+// Comparison operators
+db.users.find({ age: { $gt: 25 } })           // age > 25
+db.users.find({ age: { $gte: 25 } })          // age >= 25
+db.users.find({ age: { $lt: 30 } })           // age < 30
+db.users.find({ age: { $between: [22, 30] } })// NOT valid — use $gte + $lte:
+db.users.find({ age: { $gte: 22, $lte: 30 } })
+
+// Logical operators
+db.users.find({ $or: [ { city: "Pune" }, { city: "Mumbai" } ] })
+db.users.find({ $and: [ { age: { $gt: 20 } }, { city: "Pune" } ] })
+
+// Array query (find users with a specific interest)
+db.users.find({ interests: "music" })
+db.users.find({ interests: { $in: ["gaming", "sports"] } })
+
+// Projection (select specific fields)
+db.users.find({}, { name: 1, email: 1, _id: 0 })
+
+// Sort, limit, skip
+db.users.find().sort({ age: 1 })        // ascending
+db.users.find().sort({ age: -1 })       // descending
+db.users.find().limit(3)
+db.users.find().skip(2).limit(2)        // pagination
+
+// Count documents
+db.users.countDocuments({ city: "Pune" })
+
+// ============================================================
+// SECTION C: UPDATE
+// ============================================================
+
+// Update one document
+db.users.updateOne(
+    { email: "rahul@gmail.com" },
+    { $set: { age: 26 } }
+)
+
+// Update multiple documents
+db.users.updateMany(
+    { city: "Pune" },
+    { $set: { region: "West" } }
+)
+
+// Increment a field
+db.users.updateOne(
+    { email: "rahul@gmail.com" },
+    { $inc: { age: 1 } }
+)
+
+// Add to an array
+db.users.updateOne(
+    { email: "priya@gmail.com" },
+    { $push: { interests: "travel" } }
+)
+
+// Remove from an array
+db.users.updateOne(
+    { email: "priya@gmail.com" },
+    { $pull: { interests: "cooking" } }
+)
+
+// Upsert (insert if not found)
+db.users.updateOne(
+    { email: "new@gmail.com" },
+    { $set: { name: "New User", age: 20, city: "Kolkata" } },
+    { upsert: true }
+)
+
+// ============================================================
+// SECTION D: DELETE
+// ============================================================
+
+// Delete one document
+db.users.deleteOne({ email: "new@gmail.com" })
+
+// Delete multiple documents
+db.users.deleteMany({ city: "Delhi" })
+
+// Delete all documents in collection (CAREFUL!)
+// db.users.deleteMany({})
+
+// Drop entire collection
+// db.users.drop()
+
+// ============================================================
+// SECTION E: AGGREGATION PIPELINE
+// ============================================================
+
+// 1. Total sales amount
+db.sales.aggregate([
+    { $group: { _id: null, totalSales: { $sum: "$amount" } } }
+])
+
+// 2. Total sales per category
+db.sales.aggregate([
+    {
+        $group: {
+            _id: "$category",
+            totalRevenue: { $sum: "$amount" },
+            totalItems:   { $sum: "$qty" },
+            avgAmount:    { $avg: "$amount" }
+        }
+    },
+    { $sort: { totalRevenue: -1 } }
+])
+
+// 3. Total sales per product
+db.sales.aggregate([
+    {
+        $group: {
+            _id: "$product",
+            totalRevenue: { $sum: { $multiply: ["$amount", "$qty"] } },
+            totalQtySold: { $sum: "$qty" }
+        }
+    },
+    { $sort: { totalRevenue: -1 } }
+])
+
+// 4. Filter + group: Electronics only, total revenue
+db.sales.aggregate([
+    { $match: { category: "Electronics" } },
+    { $group: { _id: "$product", revenue: { $sum: "$amount" } } },
+    { $sort: { revenue: -1 } }
+])
+
+// 5. Average age of users per city
+db.users.aggregate([
+    { $group: { _id: "$city", avgAge: { $avg: "$age" }, count: { $sum: 1 } } },
+    { $sort: { avgAge: -1 } }
+])
+
+// 6. Project (reshape output)
+db.sales.aggregate([
+    { $project: { product: 1, total: { $multiply: ["$amount", "$qty"] }, _id: 0 } },
+    { $sort: { total: -1 } }
+])
+
+// 7. Lookup (JOIN equivalent — join users to sales)
+db.sales.aggregate([
+    {
+        $lookup: {
+            from: "users",
+            localField: "customerEmail",
+            foreignField: "email",
+            as: "customerDetails"
+        }
+    },
+    { $project: { product: 1, amount: 1, "customerDetails.name": 1, "customerDetails.city": 1 } }
+])
+
+// ============================================================
+// SECTION F: INDEXING IN MONGODB
+// ============================================================
+
+// Create single field index (ascending)
+db.users.createIndex({ email: 1 })
+
+// Unique index (like UNIQUE constraint in SQL)
+db.users.createIndex({ email: 1 }, { unique: true })
+
+// Compound index (multiple fields)
+db.users.createIndex({ city: 1, age: -1 })
+
+// Text index (for full-text search)
+db.users.createIndex({ name: "text", interests: "text" })
+
+// TTL index (auto-expire documents after X seconds)
+db.users.createIndex({ createdAt: 1 }, { expireAfterSeconds: 86400 })
+
+// List all indexes on a collection
+db.users.getIndexes()
+
+// Explain query (check if index is used)
+db.users.find({ email: "rahul@gmail.com" }).explain("executionStats")
+
+// Drop an index
+db.users.dropIndex({ email: 1 })
+
+
+// ============================================================
+// PRACTICAL 8: Social Media Data Processing
+// ============================================================
+
+use socialMediaDB
+
+// Insert social media posts collection
+db.posts.insertMany([
+    {
+        postID: 1,
+        user: "alice123",
+        content: "Loving the new #AI tools! #Technology is amazing #Tech",
+        hashtags: ["AI", "Technology", "Tech"],
+        likes: 245,
+        shares: 89,
+        comments: 34,
+        timestamp: new Date("2024-03-01T10:30:00"),
+        location: "Pune"
+    },
+    {
+        postID: 2,
+        user: "bob_dev",
+        content: "Just attended a great #AI conference. #MachineLearning is the future! #Tech",
+        hashtags: ["AI", "MachineLearning", "Tech"],
+        likes: 512,
+        shares: 201,
+        comments: 87,
+        timestamp: new Date("2024-03-01T14:15:00"),
+        location: "Mumbai"
+    },
+    {
+        postID: 3,
+        user: "priya_travels",
+        content: "Beautiful sunset at Goa beach! #Travel #Nature #Photography",
+        hashtags: ["Travel", "Nature", "Photography"],
+        likes: 890,
+        shares: 345,
+        comments: 120,
+        timestamp: new Date("2024-03-02T18:45:00"),
+        location: "Goa"
+    },
+    {
+        postID: 4,
+        user: "tech_guru",
+        content: "New breakthrough in #MachineLearning! #AI is transforming healthcare #Tech",
+        hashtags: ["MachineLearning", "AI", "Tech"],
+        likes: 634,
+        shares: 289,
+        comments: 156,
+        timestamp: new Date("2024-03-02T09:00:00"),
+        location: "Bangalore"
+    },
+    {
+        postID: 5,
+        user: "foodie_raj",
+        content: "Best biryani in town! #Food #FoodPhotography #Foodie",
+        hashtags: ["Food", "FoodPhotography", "Foodie"],
+        likes: 1200,
+        shares: 450,
+        comments: 230,
+        timestamp: new Date("2024-03-03T12:30:00"),
+        location: "Hyderabad"
+    },
+    {
+        postID: 6,
+        user: "alice123",
+        content: "#Travel goals! Visited 5 countries this year. #Nature is healing",
+        hashtags: ["Travel", "Nature"],
+        likes: 340,
+        shares: 120,
+        comments: 45,
+        timestamp: new Date("2024-03-03T16:00:00"),
+        location: "Delhi"
+    },
+    {
+        postID: 7,
+        user: "startup_sam",
+        content: "Excited to announce our #AI startup! #Technology #Innovation changing the game",
+        hashtags: ["AI", "Technology", "Innovation"],
+        likes: 789,
+        shares: 567,
+        comments: 198,
+        timestamp: new Date("2024-03-04T08:00:00"),
+        location: "Pune"
+    }
+])
+
+// ============================================================
+// QUERY 1: Find top trending hashtags
+// (Unwind hashtag arrays, group and count, sort by frequency)
+// ============================================================
+db.posts.aggregate([
+    { $unwind: "$hashtags" },
+    {
+        $group: {
+            _id: "$hashtags",
+            postCount: { $sum: 1 },
+            totalLikes: { $sum: "$likes" }
+        }
+    },
+    { $sort: { postCount: -1, totalLikes: -1 } },
+    { $limit: 10 },
+    { $project: { hashtag: "$_id", postCount: 1, totalLikes: 1, _id: 0 } }
+])
+
+// ============================================================
+// QUERY 2: Most engaging posts (by likes + shares)
+// ============================================================
+db.posts.aggregate([
+    {
+        $addFields: {
+            engagementScore: { $add: ["$likes", "$shares", "$comments"] }
+        }
+    },
+    { $sort: { engagementScore: -1 } },
+    { $limit: 5 },
+    { $project: { user: 1, hashtags: 1, likes: 1, shares: 1, comments: 1, engagementScore: 1 } }
+])
+
+// ============================================================
+// QUERY 3: Posts filtered by a specific hashtag
+// ============================================================
+db.posts.find({ hashtags: "AI" }).sort({ likes: -1 })
+
+// ============================================================
+// QUERY 4: User activity summary
+// ============================================================
+db.posts.aggregate([
+    {
+        $group: {
+            _id: "$user",
+            totalPosts:  { $sum: 1 },
+            totalLikes:  { $sum: "$likes" },
+            totalShares: { $sum: "$shares" },
+            avgLikes:    { $avg: "$likes" }
+        }
+    },
+    { $sort: { totalLikes: -1 } }
+])
+
+// ============================================================
+// QUERY 5: Posts per day (time-series analysis)
+// ============================================================
+db.posts.aggregate([
+    {
+        $group: {
+            _id: { $dateToString: { format: "%Y-%m-%d", date: "$timestamp" } },
+            postsCount:  { $sum: 1 },
+            totalLikes:  { $sum: "$likes" }
+        }
+    },
+    { $sort: { "_id": 1 } }
+])
+
+// ============================================================
+// QUERY 6: Location-based post analysis
+// ============================================================
+db.posts.aggregate([
+    {
+        $group: {
+            _id: "$location",
+            postCount:  { $sum: 1 },
+            totalLikes: { $sum: "$likes" }
+        }
+    },
+    { $sort: { totalLikes: -1 } }
+])
+
+// ============================================================
+// INDEXING FOR SOCIAL MEDIA QUERIES
+// ============================================================
+
+// Index on hashtags for fast filtering
+db.posts.createIndex({ hashtags: 1 })
+
+// Index on likes for sorting
+db.posts.createIndex({ likes: -1 })
+
+// Index on timestamp for time-range queries
+db.posts.createIndex({ timestamp: 1 })
+
+// Compound index on user + timestamp
+db.posts.createIndex({ user: 1, timestamp: -1 })
+
+// Text index on content for full-text search
+db.posts.createIndex({ content: "text" })
+
+// Full-text search using text index
+db.posts.find({ $text: { $search: "AI machine learning" } })
+
+// Show indexes
+db.posts.getIndexes()

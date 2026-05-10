@@ -1,0 +1,167 @@
+-- ============================================================
+-- PRACTICAL 9: MySQL Database Backup and Recovery
+-- ============================================================
+-- These commands are run in the TERMINAL (command line),
+-- NOT inside MySQL shell — unless marked otherwise.
+-- ============================================================
+
+
+-- ============================================================
+-- SECTION A: BACKUP USING mysqldump (Run in Terminal)
+-- ============================================================
+
+-- 1. Backup a single database
+-- mysqldump -u root -p StudentCourseDB > StudentCourseDB_backup.sql
+
+-- 2. Backup with timestamp in filename
+-- mysqldump -u root -p StudentCourseDB > StudentCourseDB_$(date +%Y%m%d).sql
+
+-- 3. Backup multiple databases
+-- mysqldump -u root -p --databases StudentCourseDB SalesDB EmployeeDB > multi_backup.sql
+
+-- 4. Backup ALL databases
+-- mysqldump -u root -p --all-databases > all_databases_backup.sql
+
+-- 5. Backup only specific tables
+-- mysqldump -u root -p StudentCourseDB Student Course > tables_backup.sql
+
+-- 6. Backup with structure only (no data)
+-- mysqldump -u root -p --no-data StudentCourseDB > structure_only.sql
+
+-- 7. Backup with data only (no CREATE TABLE statements)
+-- mysqldump -u root -p --no-create-info StudentCourseDB > data_only.sql
+
+-- 8. Compressed backup (saves space)
+-- mysqldump -u root -p StudentCourseDB | gzip > StudentCourseDB_backup.sql.gz
+
+
+-- ============================================================
+-- SECTION B: RESTORE / RECOVERY (Run in Terminal)
+-- ============================================================
+
+-- 1. Restore a database from backup
+-- mysql -u root -p StudentCourseDB < StudentCourseDB_backup.sql
+
+-- 2. Restore ALL databases
+-- mysql -u root -p < all_databases_backup.sql
+
+-- 3. Restore compressed backup
+-- gunzip < StudentCourseDB_backup.sql.gz | mysql -u root -p StudentCourseDB
+
+-- 4. Create database first, then restore
+-- mysql -u root -p -e "CREATE DATABASE IF NOT EXISTS StudentCourseDB;"
+-- mysql -u root -p StudentCourseDB < StudentCourseDB_backup.sql
+
+
+-- ============================================================
+-- SECTION C: VERIFY BACKUP (Inside MySQL shell)
+-- ============================================================
+
+-- Check databases exist
+SHOW DATABASES;
+
+-- Check tables after restore
+USE StudentCourseDB;
+SHOW TABLES;
+
+-- Verify row counts
+SELECT 'Student' AS TableName,    COUNT(*) AS RowCount FROM Student
+UNION ALL
+SELECT 'Course',                  COUNT(*) FROM Course
+UNION ALL
+SELECT 'Instructor',              COUNT(*) FROM Instructor
+UNION ALL
+SELECT 'Enrollment',              COUNT(*) FROM Enrollment;
+
+
+-- ============================================================
+-- SECTION D: TRANSACTION-BASED RECOVERY DEMO (MySQL shell)
+-- ============================================================
+
+USE StudentCourseDB;
+
+-- Start a transaction
+START TRANSACTION;
+
+-- Make some changes
+INSERT INTO Student (Name, Email, Age, Address)
+VALUES ('Test Student', 'test@test.com', 20, 'Test City');
+
+UPDATE Student SET Age = 99 WHERE Name = 'Test Student';
+
+-- Oops! Undo everything with ROLLBACK
+ROLLBACK;
+
+-- Verify: test student should not exist
+SELECT * FROM Student WHERE Name = 'Test Student';
+
+-- Now commit a valid transaction
+START TRANSACTION;
+
+INSERT INTO Student (Name, Email, Age, Address)
+VALUES ('Valid Student', 'valid@gmail.com', 21, 'Pune');
+
+COMMIT;
+
+-- Verify: valid student IS saved
+SELECT * FROM Student WHERE Name = 'Valid Student';
+
+
+-- ============================================================
+-- SECTION E: SAVEPOINTS
+-- ============================================================
+
+START TRANSACTION;
+
+INSERT INTO Student (Name, Email, Age, Address)
+VALUES ('SP Test 1', 'sp1@gmail.com', 22, 'Mumbai');
+
+SAVEPOINT sp1;     -- Save progress here
+
+INSERT INTO Student (Name, Email, Age, Address)
+VALUES ('SP Test 2', 'sp2@gmail.com', 23, 'Delhi');
+
+-- Oops, second insert was wrong — rollback only to sp1
+ROLLBACK TO SAVEPOINT sp1;
+
+-- First insert is still there, second is gone
+COMMIT;
+
+SELECT * FROM Student WHERE Name LIKE 'SP Test%';
+
+
+-- ============================================================
+-- SECTION F: BINARY LOG (Advanced Recovery)
+-- Run in Terminal
+-- ============================================================
+
+-- Check if binary logging is enabled (MySQL shell)
+SHOW VARIABLES LIKE 'log_bin';
+SHOW BINARY LOGS;
+
+-- View binary log events (MySQL shell)
+-- SHOW BINLOG EVENTS IN 'mysql-bin.000001';
+
+-- Recover using binary log (Terminal):
+-- mysqlbinlog mysql-bin.000001 | mysql -u root -p
+
+-- Recover up to a specific point in time (Terminal):
+-- mysqlbinlog --stop-datetime="2024-03-15 12:00:00" mysql-bin.000001 | mysql -u root -p
+
+
+-- ============================================================
+-- SECTION G: SCHEDULED AUTOMATED BACKUP (Linux Cron — Terminal)
+-- ============================================================
+
+-- Add this to crontab (crontab -e):
+-- Run backup every day at 2:00 AM:
+-- 0 2 * * * mysqldump -u root -pYOURPASSWORD StudentCourseDB > /backups/db_$(date +\%Y\%m\%d).sql
+
+-- ============================================================
+-- SUMMARY OF BACKUP COMMANDS
+-- ============================================================
+-- BACKUP:   mysqldump -u root -p <dbname> > backup.sql
+-- RESTORE:  mysql -u root -p <dbname> < backup.sql
+-- COMPRESS: mysqldump ... | gzip > backup.sql.gz
+-- RECOVER:  gunzip < backup.sql.gz | mysql -u root -p <dbname>
+-- ============================================================

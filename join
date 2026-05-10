@@ -1,0 +1,195 @@
+-- ============================================================
+-- PRACTICAL 4: Multi-Table Joins
+-- Customer Order Management System
+-- ============================================================
+
+CREATE DATABASE IF NOT EXISTS CustomerOrderDB;
+USE CustomerOrderDB;
+
+-- ============================================================
+-- TABLE SETUP
+-- ============================================================
+
+CREATE TABLE Customers (
+    CustomerID   INT PRIMARY KEY AUTO_INCREMENT,
+    CustomerName VARCHAR(100) NOT NULL,
+    Email        VARCHAR(100),
+    City         VARCHAR(100)
+);
+
+CREATE TABLE Orders (
+    OrderID    INT PRIMARY KEY AUTO_INCREMENT,
+    CustomerID INT,               -- May be NULL (orphan orders)
+    OrderDate  DATE,
+    Amount     DECIMAL(10,2),
+    Status     VARCHAR(50) DEFAULT 'Pending',
+    FOREIGN KEY (CustomerID) REFERENCES Customers(CustomerID)
+        ON DELETE SET NULL
+);
+
+CREATE TABLE Products (
+    ProductID   INT PRIMARY KEY AUTO_INCREMENT,
+    ProductName VARCHAR(100),
+    Price       DECIMAL(10,2),
+    Category    VARCHAR(50)
+);
+
+CREATE TABLE OrderItems (
+    ItemID    INT PRIMARY KEY AUTO_INCREMENT,
+    OrderID   INT,
+    ProductID INT,
+    Quantity  INT,
+    FOREIGN KEY (OrderID)   REFERENCES Orders(OrderID),
+    FOREIGN KEY (ProductID) REFERENCES Products(ProductID)
+);
+
+-- ============================================================
+-- SAMPLE DATA
+-- ============================================================
+
+INSERT INTO Customers (CustomerName, Email, City) VALUES
+('Rahul Sharma',  'rahul@gmail.com',  'Pune'),
+('Priya Mehta',   'priya@gmail.com',  'Mumbai'),
+('Amit Patil',    'amit@gmail.com',   'Nashik'),
+('Sunita Joshi',  'sunita@gmail.com', 'Pune'),
+('Vikram Rao',    'vikram@gmail.com', 'Delhi');
+-- Note: Vikram has no orders (for LEFT JOIN demo)
+
+INSERT INTO Orders (CustomerID, OrderDate, Amount, Status) VALUES
+(1, '2024-01-10', 1500.00, 'Completed'),
+(1, '2024-02-15', 2300.50, 'Completed'),
+(2, '2024-01-20', 800.00,  'Pending'),
+(3, '2024-03-05', 4500.00, 'Completed'),
+(4, '2024-03-10', 600.00,  'Cancelled'),
+(NULL, '2024-03-12', 999.00, 'Pending');
+-- Note: Last order has no customer (for RIGHT JOIN demo)
+
+INSERT INTO Products (ProductName, Price, Category) VALUES
+('Laptop',     45000.00, 'Electronics'),
+('Mouse',        500.00, 'Electronics'),
+('Notebook',     150.00, 'Stationery'),
+('Pen',           50.00, 'Stationery'),
+('Headphones',  2000.00, 'Electronics');
+
+INSERT INTO OrderItems (OrderID, ProductID, Quantity) VALUES
+(1, 2, 2), (1, 3, 5),
+(2, 1, 1),
+(3, 5, 1), (3, 2, 1),
+(4, 4, 10),
+(5, 3, 3);
+
+-- ============================================================
+-- SECTION A: INNER JOIN
+-- Retrieve only customers who have placed orders
+-- ============================================================
+SELECT
+    c.CustomerName,
+    c.City,
+    o.OrderID,
+    o.OrderDate,
+    o.Amount,
+    o.Status
+FROM Customers c
+INNER JOIN Orders o ON c.CustomerID = o.CustomerID
+ORDER BY o.OrderDate;
+
+-- ============================================================
+-- SECTION B: LEFT JOIN
+-- All customers, including those with NO orders
+-- ============================================================
+SELECT
+    c.CustomerName,
+    c.City,
+    o.OrderID,
+    o.Amount
+FROM Customers c
+LEFT JOIN Orders o ON c.CustomerID = o.CustomerID
+ORDER BY c.CustomerName;
+
+-- Find customers who have NEVER placed an order
+SELECT c.CustomerName, c.City
+FROM Customers c
+LEFT JOIN Orders o ON c.CustomerID = o.CustomerID
+WHERE o.OrderID IS NULL;
+
+-- ============================================================
+-- SECTION C: RIGHT JOIN
+-- All orders, including those with no matching customer
+-- ============================================================
+SELECT
+    c.CustomerName,
+    o.OrderID,
+    o.OrderDate,
+    o.Amount
+FROM Customers c
+RIGHT JOIN Orders o ON c.CustomerID = o.CustomerID
+ORDER BY o.OrderID;
+
+-- ============================================================
+-- SECTION D: FULL OUTER JOIN
+-- All customers and all orders (MySQL uses UNION to simulate)
+-- ============================================================
+SELECT c.CustomerName, o.OrderID, o.Amount
+FROM Customers c
+LEFT JOIN Orders o ON c.CustomerID = o.CustomerID
+
+UNION
+
+SELECT c.CustomerName, o.OrderID, o.Amount
+FROM Customers c
+RIGHT JOIN Orders o ON c.CustomerID = o.CustomerID;
+
+-- ============================================================
+-- SECTION E: THREE-TABLE JOIN
+-- Customer → Order → OrderItems → Product
+-- ============================================================
+SELECT
+    c.CustomerName,
+    o.OrderID,
+    p.ProductName,
+    oi.Quantity,
+    (p.Price * oi.Quantity) AS LineTotal
+FROM Customers c
+JOIN Orders o     ON c.CustomerID = o.CustomerID
+JOIN OrderItems oi ON o.OrderID   = oi.OrderID
+JOIN Products p   ON oi.ProductID = p.ProductID
+ORDER BY c.CustomerName, o.OrderID;
+
+-- ============================================================
+-- SECTION F: SELF JOIN (Employee hierarchy example)
+-- ============================================================
+CREATE TABLE IF NOT EXISTS Employee (
+    EmployeeID INT PRIMARY KEY,
+    Name       VARCHAR(100),
+    ManagerID  INT   -- References EmployeeID in same table
+);
+
+INSERT INTO Employee VALUES
+(1, 'CEO Ravi',    NULL),
+(2, 'Manager Anu', 1),
+(3, 'Manager Sam', 1),
+(4, 'Dev Priya',   2),
+(5, 'Dev John',    2),
+(6, 'Tester Raj',  3);
+
+-- Self-join to show employee and their manager
+SELECT
+    e.Name     AS Employee,
+    m.Name     AS Manager
+FROM Employee e
+LEFT JOIN Employee m ON e.ManagerID = m.EmployeeID
+ORDER BY m.Name;
+
+-- ============================================================
+-- SECTION G: AGGREGATE WITH JOIN
+-- Total order amount per customer
+-- ============================================================
+SELECT
+    c.CustomerName,
+    COUNT(o.OrderID)  AS TotalOrders,
+    SUM(o.Amount)     AS TotalSpent,
+    AVG(o.Amount)     AS AvgOrderValue
+FROM Customers c
+LEFT JOIN Orders o ON c.CustomerID = o.CustomerID
+GROUP BY c.CustomerName
+ORDER BY TotalSpent DESC;

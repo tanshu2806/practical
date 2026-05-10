@@ -1,0 +1,127 @@
+-- ============================================================
+-- PRACTICAL 2: Views and Indexing
+-- Optimizing Student Course Management System
+-- ============================================================
+
+USE StudentCourseDB;
+
+-- ============================================================
+-- SECTION A: VIEWS
+-- ============================================================
+
+-- View 1: Student with their enrolled courses
+CREATE OR REPLACE VIEW Student_Course_View AS
+SELECT
+    s.StudentID,
+    s.Name        AS StudentName,
+    s.Email       AS StudentEmail,
+    c.CourseName,
+    c.Credits,
+    i.Name        AS InstructorName,
+    e.EnrollmentDate
+FROM Student s
+JOIN Enrollment e  ON s.StudentID  = e.StudentID
+JOIN Course c      ON e.CourseID   = c.CourseID
+JOIN Instructor i  ON c.InstructorID = i.InstructorID;
+
+-- Query the view
+SELECT * FROM Student_Course_View;
+
+-- View 2: Student Majors (students and their course)
+CREATE OR REPLACE VIEW Student_Majors_View AS
+SELECT
+    s.Name  AS FirstName,
+    s.Email,
+    c.CourseName AS Major
+FROM Student s
+JOIN Enrollment e ON s.StudentID = e.StudentID
+JOIN Course c     ON e.CourseID  = c.CourseID
+WHERE c.CourseName IS NOT NULL;
+
+-- Query it like a table
+SELECT * FROM Student_Majors_View WHERE Major = 'Database Management Systems';
+
+-- View 3: Instructor workload
+CREATE OR REPLACE VIEW Instructor_Workload_View AS
+SELECT
+    i.Name AS InstructorName,
+    i.Department,
+    COUNT(c.CourseID)       AS TotalCourses,
+    SUM(c.Credits)          AS TotalCredits
+FROM Instructor i
+LEFT JOIN Course c ON i.InstructorID = c.InstructorID
+GROUP BY i.InstructorID, i.Name, i.Department;
+
+SELECT * FROM Instructor_Workload_View ORDER BY TotalCourses DESC;
+
+-- View 4: Enrollment summary
+CREATE OR REPLACE VIEW Enrollment_Summary_View AS
+SELECT
+    c.CourseName,
+    COUNT(e.StudentID) AS EnrolledStudents,
+    i.Name             AS InstructorName
+FROM Course c
+LEFT JOIN Enrollment e  ON c.CourseID    = e.CourseID
+LEFT JOIN Instructor i  ON c.InstructorID = i.InstructorID
+GROUP BY c.CourseID, c.CourseName, i.Name;
+
+SELECT * FROM Enrollment_Summary_View;
+
+-- ============================================================
+-- SECTION B: UPDATE AND DELETE THROUGH VIEWS
+-- (Only works on simple single-table views)
+-- ============================================================
+
+-- Simple updatable view on Student
+CREATE OR REPLACE VIEW Student_Basic_View AS
+SELECT StudentID, Name, Email, Age, Address
+FROM Student;
+
+-- Update through view
+UPDATE Student_Basic_View
+SET Age = 21
+WHERE Name = 'Alice Smith';
+
+-- Delete through view
+-- DELETE FROM Student_Basic_View WHERE StudentID = 5;
+
+-- Drop a view
+-- DROP VIEW IF EXISTS Student_Basic_View;
+
+-- ============================================================
+-- SECTION C: INDEXING
+-- ============================================================
+
+-- Index on Student Email (frequently searched)
+CREATE INDEX idx_student_email
+ON Student(Email);
+
+-- Index on Student Name
+CREATE INDEX idx_student_name
+ON Student(Name);
+
+-- Index on Course Name
+CREATE INDEX idx_course_name
+ON Course(CourseName);
+
+-- Composite index on Enrollment (StudentID + CourseID)
+CREATE INDEX idx_enrollment_student_course
+ON Enrollment(StudentID, CourseID);
+
+-- Index on EnrollmentDate for date range queries
+CREATE INDEX idx_enrollment_date
+ON Enrollment(EnrollmentDate);
+
+-- ============================================================
+-- MEASURE QUERY PERFORMANCE
+-- ============================================================
+
+-- Check if index is being used (MySQL: EXPLAIN)
+EXPLAIN SELECT * FROM Student WHERE Email = 'alice@gmail.com';
+
+-- Show all indexes on a table
+SHOW INDEX FROM Student;
+SHOW INDEX FROM Enrollment;
+
+-- Drop an index (if needed)
+-- DROP INDEX idx_student_name ON Student;

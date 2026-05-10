@@ -1,0 +1,97 @@
+-- ============================================================
+-- PRACTICAL 1: Introduction to Database Creation
+-- Student Course Management System
+-- ============================================================
+
+-- Create Database
+CREATE DATABASE IF NOT EXISTS StudentCourseDB;
+USE StudentCourseDB;
+
+-- ============================================================
+-- TABLE: Instructor
+-- ============================================================
+CREATE TABLE Instructor (
+    InstructorID INT PRIMARY KEY AUTO_INCREMENT,
+    Name         VARCHAR(100) NOT NULL,
+    Email        VARCHAR(100) UNIQUE NOT NULL,
+    Department   VARCHAR(100)
+);
+
+-- ============================================================
+-- TABLE: Student
+-- ============================================================
+CREATE TABLE Student (
+    StudentID INT PRIMARY KEY AUTO_INCREMENT,
+    Name      VARCHAR(100) NOT NULL,
+    Email     VARCHAR(100) UNIQUE NOT NULL,
+    Age       INT CHECK (Age > 0),
+    Address   VARCHAR(255)
+);
+
+-- ============================================================
+-- TABLE: Course
+-- ============================================================
+CREATE TABLE Course (
+    CourseID     INT PRIMARY KEY AUTO_INCREMENT,
+    CourseName   VARCHAR(100) NOT NULL,
+    Credits      INT CHECK (Credits > 0),
+    InstructorID INT,
+    FOREIGN KEY (InstructorID) REFERENCES Instructor(InstructorID)
+        ON DELETE SET NULL
+);
+
+-- ============================================================
+-- TABLE: Enrollment (Junction Table — Many-to-Many)
+-- ============================================================
+CREATE TABLE Enrollment (
+    EnrollmentID   INT PRIMARY KEY AUTO_INCREMENT,
+    StudentID      INT NOT NULL,
+    CourseID       INT NOT NULL,
+    EnrollmentDate DATE DEFAULT (CURRENT_DATE),
+    FOREIGN KEY (StudentID) REFERENCES Student(StudentID)
+        ON DELETE CASCADE,
+    FOREIGN KEY (CourseID)  REFERENCES Course(CourseID)
+        ON DELETE CASCADE,
+    UNIQUE (StudentID, CourseID)   -- prevent duplicate enrollment
+);
+
+-- ============================================================
+-- INSERT SAMPLE DATA
+-- ============================================================
+
+INSERT INTO Instructor (Name, Email, Department) VALUES
+('Dr. Sharma',  'sharma@college.edu',  'Computer Science'),
+('Dr. Mehta',   'mehta@college.edu',   'Mathematics'),
+('Dr. Patil',   'patil@college.edu',   'Electronics');
+
+INSERT INTO Student (Name, Email, Age, Address) VALUES
+('Alice Smith',  'alice@gmail.com',  20, 'Pune'),
+('Bob Jones',    'bob@gmail.com',    22, 'Mumbai'),
+('Grace Green',  'grace@gmail.com',  21, 'Nashik'),
+('David Brown',  'david@gmail.com',  19, 'Nagpur'),
+('Eva White',    'eva@gmail.com',    23, 'Pune');
+
+INSERT INTO Course (CourseName, Credits, InstructorID) VALUES
+('Database Management Systems', 4, 1),
+('Data Structures',             3, 1),
+('Linear Algebra',              3, 2),
+('Digital Electronics',         4, 3);
+
+INSERT INTO Enrollment (StudentID, CourseID, EnrollmentDate) VALUES
+(1, 1, '2024-07-01'),
+(1, 2, '2024-07-01'),
+(2, 1, '2024-07-02'),
+(3, 1, '2024-07-02'),
+(3, 3, '2024-07-03'),
+(4, 2, '2024-07-03'),
+(4, 4, '2024-07-04'),
+(5, 1, '2024-07-05'),
+(5, 3, '2024-07-05');
+
+-- ============================================================
+-- VERIFY DATA
+-- ============================================================
+SELECT * FROM Instructor;
+SELECT * FROM Student;
+SELECT * FROM Course;
+SELECT * FROM Enrollment;

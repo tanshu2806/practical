@@ -1,0 +1,165 @@
+-- ============================================================
+-- PRACTICAL 3: SQL Queries with Filters, Sorting, Subqueries
+-- Advanced Querying in Student Course Management System
+-- ============================================================
+
+USE StudentCourseDB;
+
+-- ============================================================
+-- SECTION A: FILTERING WITH WHERE
+-- ============================================================
+
+-- 1. Students older than 20
+SELECT StudentID, Name, Age, Address
+FROM Student
+WHERE Age > 20
+ORDER BY Age DESC;
+
+-- 2. Students from Pune
+SELECT Name, Address FROM Student
+WHERE Address = 'Pune';
+
+-- 3. Courses with more than 3 credits
+SELECT CourseName, Credits FROM Course
+WHERE Credits > 3;
+
+-- 4. Students enrolled after a specific date
+SELECT s.Name, e.EnrollmentDate
+FROM Student s
+JOIN Enrollment e ON s.StudentID = e.StudentID
+WHERE e.EnrollmentDate > '2024-07-02';
+
+-- 5. Filter by instructor name
+SELECT c.CourseName, i.Name AS Instructor
+FROM Course c
+JOIN Instructor i ON c.InstructorID = i.InstructorID
+WHERE i.Name = 'Dr. Sharma';
+
+-- 6. NULL handling
+SELECT Name FROM Student WHERE Address IS NOT NULL;
+SELECT Name FROM Student WHERE Address IS NULL;
+
+-- 7. LIKE operator (pattern matching)
+SELECT Name, Email FROM Student
+WHERE Email LIKE '%gmail.com';
+
+-- 8. IN operator
+SELECT Name FROM Student
+WHERE Address IN ('Pune', 'Mumbai');
+
+-- 9. BETWEEN operator
+SELECT Name, Age FROM Student
+WHERE Age BETWEEN 19 AND 22;
+
+-- ============================================================
+-- SECTION B: SORTING WITH ORDER BY
+-- ============================================================
+
+-- Alphabetically by name
+SELECT Name, Age FROM Student ORDER BY Name ASC;
+
+-- By age descending
+SELECT Name, Age FROM Student ORDER BY Age DESC;
+
+-- Courses by credits descending
+SELECT CourseName, Credits FROM Course ORDER BY Credits DESC;
+
+-- Multi-column sort
+SELECT Name, Age, Address FROM Student
+ORDER BY Address ASC, Age DESC;
+
+-- ============================================================
+-- SECTION C: AGGREGATION WITH GROUP BY
+-- ============================================================
+
+-- Count students per course
+SELECT c.CourseName, COUNT(e.StudentID) AS StudentCount
+FROM Course c
+LEFT JOIN Enrollment e ON c.CourseID = e.CourseID
+GROUP BY c.CourseName
+ORDER BY StudentCount DESC;
+
+-- Average age of students
+SELECT AVG(Age) AS AverageAge FROM Student;
+
+-- Min and Max age
+SELECT MIN(Age) AS Youngest, MAX(Age) AS Oldest FROM Student;
+
+-- Total credits per instructor
+SELECT i.Name AS Instructor, SUM(c.Credits) AS TotalCredits
+FROM Instructor i
+JOIN Course c ON i.InstructorID = c.InstructorID
+GROUP BY i.Name;
+
+-- Number of courses each student is enrolled in
+SELECT s.Name, COUNT(e.CourseID) AS CoursesEnrolled
+FROM Student s
+LEFT JOIN Enrollment e ON s.StudentID = e.StudentID
+GROUP BY s.Name
+ORDER BY CoursesEnrolled DESC;
+
+-- HAVING: Show only courses with more than 2 students
+SELECT c.CourseName, COUNT(e.StudentID) AS StudentCount
+FROM Course c
+JOIN Enrollment e ON c.CourseID = e.CourseID
+GROUP BY c.CourseName
+HAVING COUNT(e.StudentID) > 2;
+
+-- ============================================================
+-- SECTION D: NESTED SUBQUERIES
+-- ============================================================
+
+-- 1. Students enrolled in 'Database Management Systems'
+SELECT Name FROM Student
+WHERE StudentID IN (
+    SELECT StudentID FROM Enrollment
+    WHERE CourseID = (
+        SELECT CourseID FROM Course
+        WHERE CourseName = 'Database Management Systems'
+    )
+);
+
+-- 2. Students older than average age
+SELECT Name, Age FROM Student
+WHERE Age > (SELECT AVG(Age) FROM Student);
+
+-- 3. Courses taught by instructor from 'Computer Science' dept
+SELECT CourseName FROM Course
+WHERE InstructorID IN (
+    SELECT InstructorID FROM Instructor
+    WHERE Department = 'Computer Science'
+);
+
+-- 4. Students NOT enrolled in any course (using NOT IN)
+SELECT Name FROM Student
+WHERE StudentID NOT IN (
+    SELECT DISTINCT StudentID FROM Enrollment
+);
+
+-- 5. Correlated subquery: Students enrolled in more than 1 course
+SELECT Name FROM Student s
+WHERE (
+    SELECT COUNT(*) FROM Enrollment e
+    WHERE e.StudentID = s.StudentID
+) > 1;
+
+-- ============================================================
+-- SECTION E: SET OPERATIONS
+-- ============================================================
+
+-- Students in course 1 OR course 2 (UNION removes duplicates)
+SELECT StudentID FROM Enrollment WHERE CourseID = 1
+UNION
+SELECT StudentID FROM Enrollment WHERE CourseID = 2;
+
+-- Students in BOTH course 1 AND course 2 (INTERSECT — use JOIN in MySQL)
+SELECT e1.StudentID
+FROM Enrollment e1
+JOIN Enrollment e2 ON e1.StudentID = e2.StudentID
+WHERE e1.CourseID = 1 AND e2.CourseID = 2;
+
+-- Students in course 1 but NOT in course 2 (EXCEPT — use NOT IN in MySQL)
+SELECT StudentID FROM Enrollment WHERE CourseID = 1
+AND StudentID NOT IN (
+    SELECT StudentID FROM Enrollment WHERE CourseID = 2
+);
